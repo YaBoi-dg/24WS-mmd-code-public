@@ -99,18 +99,17 @@ def rate_all_items(orig_utility_matrix, user_index, neighborhood_size):
     return ratings
 
 #Task 4
-def process_movielens_data():
+def process_movielens_data(dataset):
     rated_by = {}
     user_col = []
     user_indices = {}
     
-    dataset = data_util.load_movielens_tf('25M')
     user_count = 0
     
     for entry in dataset:
-        user_id = entry['user_id']
-        item_id = entry['item_id']
-        rating = entry['rating']
+        user_id = entry[0]
+        item_id = entry[1]
+        rating = entry[2]
 
         if item_id not in rated_by:
             rated_by[item_id] = []
@@ -128,11 +127,32 @@ def process_movielens_data():
 
     return rated_by, user_col
 
-# Run the processing function
-rated_by, user_col = process_movielens_data()
-# log results 
-print("Rated by structure:", rated_by)
-print("User column structure:", user_col)
+# Task 5 a)
+def estimate_rating(user_id, item_id, utility_matrix, neighborhood_size):
+    """
+    Estimate the rating of a user on an item using collaborative filtering.
+    """
+    centered_matrix = center_and_nan_to_zero(utility_matrix)
+
+    user_vector = centered_matrix[:, user_id]
+
+    # can use other cosine methods for different results
+    similarities = fast_centered_cosine_sim(centered_matrix, user_vector, axis=0)
+
+    users_who_rated_item = np.where(~np.isnan(utility_matrix[item_id, :]))[0]
+
+    top_similar_users = np.argsort(similarities[users_who_rated_item])[-neighborhood_size:]
+    top_similar_users = users_who_rated_item[top_similar_users]
+
+    # Calculate weighted rating using top-K neighbors
+    if top_similar_users.size > 0:
+        ratings = utility_matrix[item_id, top_similar_users]
+        sim_scores = similarities[top_similar_users]
+        rating_estimate = np.dot(ratings, sim_scores) / np.sum(sim_scores)
+    else:
+        rating_estimate = np.nan
+
+    return rating_estimate
 
 # Unit Tests
 # Task 2
