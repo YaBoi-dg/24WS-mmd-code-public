@@ -1,6 +1,6 @@
 from scipy.sparse import csr_matrix, lil_matrix
 import numpy as np
-
+import data_util 
 def complete_code(message):
     raise Exception(f"Please complete the code: {message}")
     return None
@@ -70,7 +70,6 @@ def fast_centered_cosine_sim(matrix, vector):
     
     return np.divide(dot_products, norms, out=np.zeros_like(dot_products), where=norms != 0)
 
-# Existing CF function
 def rate_all_items(orig_utility_matrix, user_index, neighborhood_size):
     print(f"\n>>> CF computation for UM w/ shape: "
           + f"{orig_utility_matrix.shape}, user_index: {user_index}, neighborhood_size: {neighborhood_size}\n")
@@ -99,7 +98,44 @@ def rate_all_items(orig_utility_matrix, user_index, neighborhood_size):
     ratings = list(map(rate_one_item, range(num_items)))
     return ratings
 
+#Task 4
+def process_movielens_data():
+    rated_by = {}
+    user_col = []
+    user_indices = {}
+    
+    dataset = data_util.load_movielens_tf('25M')
+    user_count = 0
+    
+    for entry in dataset:
+        user_id = entry['user_id']
+        item_id = entry['item_id']
+        rating = entry['rating']
+
+        if item_id not in rated_by:
+            rated_by[item_id] = []
+        rated_by[item_id].append(user_id)
+
+        if user_id not in user_indices:
+            user_indices[user_id] = user_count
+            user_count += 1
+            user_col.append(csr_matrix((1, len(dataset)))) 
+        
+        user_index = user_indices[user_id]
+        user_col[user_index][0, item_id] = rating 
+
+    user_col = csr_matrix(user_col)
+
+    return rated_by, user_col
+
+# Run the processing function
+rated_by, user_col = process_movielens_data()
+# log results 
+print("Rated by structure:", rated_by)
+print("User column structure:", user_col)
+
 # Unit Tests
+# Task 2
 def test_centered_cosine_sim():
     k = 100
     vector_x = csr_matrix(([i + 1 for i in range(k)], ([0] * k, range(k))), shape=(1, k))
