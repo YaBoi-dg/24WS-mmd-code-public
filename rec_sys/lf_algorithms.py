@@ -210,7 +210,8 @@ class Flags:
     evaluate_uv_factorization_tf_slow = False
     evaluate_uv_factorization_vec_no_reg = False
     evaluate_uv_factorization_vec_with_reg = False
-
+    do_task_3_b = False
+    do_task_5_a = True
 
 # Test the functions
 if __name__ == '__main__':
@@ -270,8 +271,8 @@ if __name__ == '__main__':
 
 
     # Task 3 a)
-    print("Starting Task a)")
     if Flags.evaluate_uv_factorization_vec_with_reg:
+        print("Starting Task a)")
         ratings_tf, matrix_u, matrix_v, num_users, num_items = load_data_and_init_factors(config)
         train_ds, valid_ds, test_ds = data.split_train_valid_test_tf(ratings_tf, config)
 
@@ -292,54 +293,79 @@ if __name__ == '__main__':
         show_metrics_and_examples("====== After optimization (with reg) =====", matrix_u, matrix_v)
 
     # Task 3 b)
-    print("Starting Task b)")
-    # pprepre data
-    ratings_tf, matrix_u, matrix_v, num_users, num_items = load_data_and_init_factors(config)
-    train_ds, valid_ds, test_ds = data.split_train_valid_test_tf(ratings_tf, config)
+    if Flags.do_task_3_b:
+        print("Starting Task b)")
+        # pprepre data
+        ratings_tf, matrix_u, matrix_v, num_users, num_items = load_data_and_init_factors(config)
+        train_ds, valid_ds, test_ds = data.split_train_valid_test_tf(ratings_tf, config)
 
-    # adjust iterations
-    num_epochs = 5
-    batch_size_training = 128
+        # adjust iterations
+        num_epochs = 5
+        batch_size_training = 128
 
-    # Define grid values for fixed_learning_rate and reg_param
-    learning_rate_values = [0.001, 0.005, 0.01, 0.05, 0.1]
-    reg_param_values = [0.01, 0.1, 0.2, 0.5, 1.0]
+        # Define grid values for fixed_learning_rate and reg_param
+        learning_rate_values = [0.001, 0.005, 0.01, 0.05, 0.1]
+        reg_param_values = [0.01, 0.1, 0.2, 0.5, 1.0]
 
-    best_loss = float("inf")
-    best_hyperparams = None
-    results = []
+        best_loss = float("inf")
+        best_hyperparams = None
+        results = []
 
-    # Loop through each combination of learning rates and regularization parameters
-    for lr in learning_rate_values:
-        for reg in reg_param_values:
-            print(f"Testing fixed_learning_rate={lr}, reg_param={reg}")
+        # Loop through each combination of learning rates and regularization parameters
+        for lr in learning_rate_values:
+            for reg in reg_param_values:
+                print(f"Testing fixed_learning_rate={lr}, reg_param={reg}")
 
-            config.fixed_learning_rate = lr
-            config.reg_param = reg
+                config.fixed_learning_rate = lr
+                config.reg_param = reg
 
-            # Initialize matrices fresh for each run to avoid carrying over learned values
-            mat_u, mat_v = jnp.copy(matrix_u), jnp.copy(matrix_v)
+                # Initialize matrices fresh for each run to avoid carrying over learned values
+                mat_u, mat_v = jnp.copy(matrix_u), jnp.copy(matrix_v)
 
-            # Run the factorization function with the current hyperparameters
-            mat_u, mat_v = uv_factorization_reg(mat_u, mat_v, train_ds, valid_ds, config)
+                # Run the factorization function with the current hyperparameters
+                mat_u, mat_v = uv_factorization_reg(mat_u, mat_v, train_ds, valid_ds, config)
 
-            # Calculate validation loss
-            batch_losses = mse_loss_all_batches(mat_u, mat_v, valid_ds, config.batch_size_predict_with_mse)
-            valid_loss = jnp.mean(jnp.array(batch_losses))
+                # Calculate validation loss
+                batch_losses = mse_loss_all_batches(mat_u, mat_v, valid_ds, config.batch_size_predict_with_mse)
+                valid_loss = jnp.mean(jnp.array(batch_losses))
 
-            print(f"Validation loss for fixed_learning_rate={lr}, reg_param={reg}: {valid_loss:.4f}")
+                print(f"Validation loss for fixed_learning_rate={lr}, reg_param={reg}: {valid_loss:.4f}")
 
-            # Save the results for analysis and determine if this is the best loss
-            results.append((lr, reg, valid_loss))
+                # Save the results for analysis and determine if this is the best loss
+                results.append((lr, reg, valid_loss))
 
-            if valid_loss < best_loss:
-                best_loss = valid_loss
-                best_hyperparams = (lr, reg)
+                if valid_loss < best_loss:
+                    best_loss = valid_loss
+                    best_hyperparams = (lr, reg)
 
-        print(f"\nBest hyperparameters: fixed_learning_rate={best_hyperparams[0]}, reg_param={best_hyperparams[1]} with validation loss={best_loss:.4f}")
+            print(f"\nBest hyperparameters: fixed_learning_rate={best_hyperparams[0]}, reg_param={best_hyperparams[1]} with validation loss={best_loss:.4f}")
     
-    # Run again with hyperparameters for comparison
-    config.fixed_learning_rate, config.reg_param = best_hyperparams
-    matrix_u, matrix_v = uv_factorization_reg(matrix_u, matrix_v, train_ds, valid_ds, config)
+        # Run again with hyperparameters for comparison
+        config.fixed_learning_rate, config.reg_param = best_hyperparams
+        matrix_u, matrix_v = uv_factorization_reg(matrix_u, matrix_v, train_ds, valid_ds, config)
 
-    show_metrics_and_examples("Best Model After Grid Search Optimization (with regularization)", matrix_u, matrix_v)
+        show_metrics_and_examples("Best Model After Grid Search Optimization (with regularization)", matrix_u, matrix_v)
+
+
+    # Task 5
+    if Flags.do_task_5_a:
+        from memory_profiler import profile
+        import jax.random as jrandom
+
+        @profile
+        def test_mse_loss():
+            key = jrandom.PRNGKey(0)
+            mat_u = jrandom.normal(key, (1000, 100))
+            mat_v = jrandom.normal(key, (100, 1000))
+    
+            record = {
+                "movie_id": jnp.array([1, 2, 3, 4, 5]),
+                "user_id": jnp.array([1, 2, 3, 4, 5]),
+                "user_rating": jnp.array([4.0, 3.5, 5.0, 2.0, 4.5])
+            }
+
+            # Calculate loss and track memory
+            loss = mse_loss_one_batch(mat_u, mat_v, record)
+            print(f"Computed MSE Loss: {loss}")
+    
+        test_mse_loss()
